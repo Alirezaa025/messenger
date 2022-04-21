@@ -1,0 +1,8 @@
+for runnong add directory after server in config.php line 3 section 3
+example:
+define('rootDirectory', '/' . 'messenger/');
+
+default username: admin
+default password admin
+
+evry user after sign up ad to default group!
