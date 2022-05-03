@@ -5,7 +5,7 @@
  */
 function addMessage($message, $groupID, $type = 'text', $userID)
 {
-    
+
     if ($type == 'text') {
         $abstract = file_get_contents('../db/groups/' . $groupID . '/log.txt');
         $messages = file_get_contents('../db/groups/' . $groupID . '/messages.txt');
@@ -15,8 +15,8 @@ function addMessage($message, $groupID, $type = 'text', $userID)
     }
     $abstract = json_decode($abstract, true);
     $messages = json_decode($messages, true);
-    
-    if (in_array($userID, $abstract['blocks']) ) {
+
+    if (in_array($userID, $abstract['blocks'])) {
         print_r('blocks');
         return;
     }
