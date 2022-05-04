@@ -59,35 +59,87 @@ function createGroup($groupName, $admin)
 
 /**
  * read abstract groups details 
- * @return array abstract-group-details
  */
 function abstractGroup($groupID)
 {
-    $target = "db/groups/$groupID/log.txt";
+    if (dbType == 'file') {
+        $target = "db/groups/$groupID/log.txt";
 
-    if (!file_exists($target)) {
-        return false;
+        if (!file_exists($target)) {
+            return false;
+        }
+
+        $abstract = file_get_contents($target);
+        $abstract = json_decode($abstract, true);
+
+        $messageDetails = file_get_contents("db/groups/$groupID/messages.txt");
+        $messageDetails = json_decode($messageDetails, true);
+
+        return [
+            'groupName' => $abstract['groupName'],
+            'avatar' => $abstract['avatar'],
+            'usersCount' => $abstract['usersCount'],
+            'admins' => $abstract['admins'],
+            'members' => $abstract['members'],
+            'blocks' => $abstract['blocks'],
+            'lastMessageId' => is_array($messageDetails) && !empty($messageDetails) ? key(array_slice($messageDetails, -1, 1, true)) : '',
+            'lastMessageUser' => is_array($messageDetails) && !empty($messageDetails) ? findUsername(end($messageDetails)['userID']) : '(',
+            'lastMessage' => is_array($messageDetails) && !empty($messageDetails) ? end($messageDetails)['message'] : 'Empty',
+            'lastMessageTime' => is_array($messageDetails) && !empty($messageDetails) ? end($messageDetails)['time'] : '',
+            'lastMessageType' => is_array($messageDetails) && !empty($messageDetails) ? (end($messageDetails)['type'] == 'image' ? 'image' : '') : '',
+        ];
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = 'SELECT * FROM `groups` WHERE `group_id` = ? LIMIT 1';
+        $group = $conn->prepare($query);
+        $group->execute([$groupID]);
+
+        $query = 'SELECT * FROM `groups` WHERE `group_id` = ? LIMIT 1';
+        $group = $conn->prepare($query);
+        $group->execute([$groupID]);
+        $group = $group->fetch(PDO::FETCH_ASSOC);
+
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ?';
+        $members = $conn->prepare($query);
+        $members->execute([$groupID]);
+        $members = $members->fetch(PDO::FETCH_NUM);
+
+        $usersCount = count($members);
+
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_admin` == true';
+        $admins = $conn->prepare($query);
+        $admins->execute([$groupID]);
+        $admins = $admins->fetch(PDO::FETCH_NUM);
+
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_block` == true';
+        $blocks = $conn->prepare($query);
+        $blocks->execute([$groupID]);
+        $blocks = $blocks->fetch(PDO::FETCH_NUM);
+
+        $query = 'SELECT * FROM `messages` ORDER BY `message_id` DESC LIMIT 1';
+        $lastMessage = $conn->prepare($query);
+        $lastMessage->execute([$groupID]);
+        $lastMessage = $lastMessage->fetch(PDO::FETCH_NUM);
+
+
+
+
+        return [
+            'groupName' => $group['groupName'],
+            'avatar' => $group['avatar'],
+            'usersCount' => $usersCount,
+            'admins' => $admins,
+            'members' => $members,
+            'blocks' => $blocks,
+            // 'lastMessageId' => is_array($messageDetails) && !empty($messageDetails) ? key(array_slice($messageDetails, -1, 1, true)) : '',
+            'lastMessageUser' => !$lastMessage ? '(' : findUsername($lastMessage['user_id']),
+            'lastMessage'     => $lastMessage ? $lastMessage['message'] : 'Empty',
+            'lastMessageTime' => $lastMessage ? $lastMessage['time'] : '',
+            'lastMessageType' => $lastMessage ? $lastMessage['type'] : '',
+        ];
     }
-
-    $abstract = file_get_contents($target);
-    $abstract = json_decode($abstract, true);
-
-    $messageDetails = file_get_contents("db/groups/$groupID/messages.txt");
-    $messageDetails = json_decode($messageDetails, true);
-
-    return [
-        'groupName' => $abstract['groupName'],
-        'avatar' => $abstract['avatar'],
-        'usersCount' => $abstract['usersCount'],
-        'admins' => $abstract['admins'],
-        'members' => $abstract['members'],
-        'blocks' => $abstract['blocks'],
-        'lastMessageId' => is_array($messageDetails) && !empty($messageDetails) ? key(array_slice($messageDetails, -1, 1, true)) : '',
-        'lastMessageUser' => is_array($messageDetails) && !empty($messageDetails) ? findUsername(end($messageDetails)['userID']) : '(',
-        'lastMessage' => is_array($messageDetails) && !empty($messageDetails) ? end($messageDetails)['message'] : 'Empty',
-        'lastMessageTime' => is_array($messageDetails) && !empty($messageDetails) ? end($messageDetails)['time'] : '',
-        'lastMessageType' => is_array($messageDetails) && !empty($messageDetails) ? (end($messageDetails)['type'] == 'image' ? 'image' : '') : '',
-    ];
 }
 
 /**
