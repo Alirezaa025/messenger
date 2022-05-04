@@ -12,7 +12,6 @@
 
 function user_exists($username, $is_ajax = false, $dbType = null)
 {
-    $dbType = @dbType ?? null;
 
 
     if ($dbType == 'file') {
@@ -41,6 +40,10 @@ function user_exists($username, $is_ajax = false, $dbType = null)
             return false;
         }
     } elseif ($dbType == 'mysql') {
+        if ($is_ajax) {
+            require_once 'dbConnection.php';
+        }
+
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
 
@@ -101,7 +104,7 @@ function email_exists($email)
 function add_user($name, $username, $email, $password)
 {
     // if username already exists do nothing
-    if (user_exists($username)) {
+    if (user_exists($username, false, dbType)) {
         return false;
     }
 
@@ -195,7 +198,7 @@ function auth($username = null, $password = null)
         return false;
     }
 
-    if (!($user_data = user_exists($username))) { // check if username exists and fetch data
+    if (!($user_data = user_exists($username, false, dbType))) { // check if username exists and fetch data
         return false;
     }
 
@@ -278,7 +281,7 @@ function check_cookie()
         return false;
     }
 
-    if (!($user = user_exists($_COOKIE['username']))) {
+    if (!($user = user_exists($_COOKIE['username'], false, dbType))) {
         return false;
     }
 
@@ -332,7 +335,7 @@ function editUser($oldUsername, $newUsername, $email = null, $bio = null, $group
  */
 function readUserGroups($username)
 {
-    if (!($user = user_exists($username))) {
+    if (!($user = user_exists($username, false, dbType))) {
         return false;
     }
 
@@ -349,8 +352,14 @@ function findAvatar($username)
 {
     $images = [];
     $userID = findID($username);
-    foreach (glob("db/users_avatar/$userID" . "*.jpg") as $filename) {
-        array_push($images, $filename);
+    if (dbType == 'file') {
+        foreach (glob("db/users_avatar/$userID" . "*.jpg") as $filename) {
+            array_push($images, $filename);
+        }
+    } elseif (dbType == 'mysql') {
+        foreach (glob("mysqlDB/users_avatar/$userID" . "*.jpg") as $filename) {
+            array_push($images, $filename);
+        }
     }
 
     if (empty($images)) {
@@ -365,7 +374,7 @@ function findAvatar($username)
  */
 function addGroupToUser($username, $groupID)
 {
-    if (!$user = user_exists($username)) {
+    if (!$user = user_exists($username, false, dbType)) {
         return false;
     }
 
@@ -389,7 +398,7 @@ function addGroupToUser($username, $groupID)
  */
 function findID($username)
 {
-    $user = user_exists($username);
+    $user = user_exists($username, false, dbType);
     if ($user) {
         return $user['id'];
     } else {
@@ -464,17 +473,28 @@ function findUsernameJS($userID, $dbType)
  */
 function changeAvatar($user_id, $newAvatarName)
 {
-    $users = file_get_contents('db/users_data.txt');
-    $users = json_decode($users, true);
+    if (dbType == 'file') {
+        $users = file_get_contents('db/users_data.txt');
+        $users = json_decode($users, true);
 
-    $username = findUsername($user_id);
+        $username = findUsername($user_id);
 
 
-    $users[$username]['avatar'] = $newAvatarName;
+        $users[$username]['avatar'] = $newAvatarName;
 
-    $users = json_encode($users);
-    file_put_contents('db/users_data.txt', $users);
-    return true;
+        $users = json_encode($users);
+        file_put_contents('db/users_data.txt', $users);
+        return true;
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "UPDATE `users` SET `avatar` = '$newAvatarName'  WHERE `user_id` = ? ";
+        $group = $conn->prepare($query);
+        $group->execute([$user_id]);
+
+        return true;
+    }
 }
 
 /**
@@ -487,11 +507,19 @@ function changeAvatar($user_id, $newAvatarName)
 function removeAvatar($selectedAvatar)
 {
     if (deleteDirectory($selectedAvatar)) {
-        $user = user_exists($_SESSION['username']);
+        $user = user_exists($_SESSION['username'], false, dbType);
         if ($user['avatar'] == $selectedAvatar) {
+            if (dbType == 'file') {
             $tmp = json_decode(file_get_contents('db/users_data.txt'), true);
             $tmp[$_SESSION['username']]['avatar'] = '';
             file_put_contents('db/users_data.txt', json_encode($tmp));
+            } elseif (dbType == 'mysql') {
+                $connInstance = MySqlDatabaseConnection::getInstance();
+                $conn = $connInstance->getConnection();
+                $query = "UPDATE `users` SET `avatar` = '' WHERE `user_id` = ?";
+                $user = $conn->prepare($query);
+                $user->execute([$_SESSION['user_id']]);
+            }
         }
         return true;
     }

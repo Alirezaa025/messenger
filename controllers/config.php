@@ -94,6 +94,9 @@ if (dbType == 'file') {
         }
     }
 } elseif (dbType == 'mysql') {
+    if (!file_exists('mysqlDB')) {
+        mkdir('mysqlDB');
+    }
     $connInstance = MySqlDatabaseConnection::getInstance();
     $conn = $connInstance->getConnection();
 

@@ -131,7 +131,7 @@ function get_contents()
                                 <hr>
                                 <?php foreach ($groupInfo['members'] as $member) : ?>
                                     <?php $username = findUsername($member); ?>
-                                    <?php $memberAvatar = user_exists($username) ?>
+                                    <?php $memberAvatar = user_exists($username, false, dbType) ?>
                                     <div class="flex px-5 py-3 space-x-3 group rounded hover:bg-slate-700">
                                         <?php if (!empty($memberAvatar['avatar'])) : ?>
                                             <img class="rounded-full w-10 h-10" src="<?= main_url . $memberAvatar['avatar'] ?>" alt="">
@@ -180,8 +180,17 @@ function get_contents()
                                     <?php loadMessages($messages, $rule) ?>
                                 <?php endif; ?>
 
+                                <?php
+                                $connInstance = MySqlDatabaseConnection::getInstance();
+                                $conn = $connInstance->getConnection();
+                                $query = "checksum table `messages`";
+                                $hash = $conn->query($query)->fetch(PDO::FETCH_ASSOC)['Checksum'];
+
+                                ?>
                                 <script type="text/javascript">
                                     $(document).ready(function() {
+                                        <?php $hash = dbType == 'file' ? md5_file("db/groups/$_POST[groupID]/messages.txt") : $hash ?>
+                                        document.cookie = "groupMessageHash=<?= $hash ?>";
                                         setInterval(function() {
                                             worker(<?= $_POST['groupID'] ?>, <?= $_SESSION['user_id'] ?>, "<?= $rule ?>", "<?= main_url ?>", "<?= dbType ?>")
                                         }, 1000);
@@ -276,7 +285,7 @@ function process_inputs()
 {
 
     global $userDetails;
-    $userDetails = user_exists($_SESSION['username']);
+    $userDetails = user_exists($_SESSION['username'], false, dbType);
 
     if (!isset($_POST)) return;
 
@@ -335,14 +344,14 @@ function process_inputs()
             return;
         } else {
             add_toast('Profile edit successful', 'success');
-            $userDetails = user_exists($_SESSION['username']);
+            $userDetails = user_exists($_SESSION['username'], false, dbType);
             return;
         }
     }
 
     if (isset($_FILES['newProfImg'])) {
         uploadImage($_SESSION['username'], $_FILES['newProfImg'], $_SESSION['username'], 'avatar');
-        $userDetails = user_exists($_SESSION['username']);
+        $userDetails = user_exists($_SESSION['username'], false, dbType);
     }
 
     if (isset($_POST['blockMember']) || isset($_POST['UnblockMember'])) {
@@ -366,7 +375,7 @@ function process_inputs()
     if (isset($_POST['changeAvatar'])) {
         if (changeAvatar($_SESSION['user_id'], $_POST['changeAvatar'])) {
             add_toast('Profile Image Change', 'success');
-            $userDetails = user_exists($_SESSION['username']);
+            $userDetails = user_exists($_SESSION['username'], false, dbType);
         } else {
             add_toast('something wrong! Try later', 'error');
         }
@@ -375,7 +384,7 @@ function process_inputs()
     if (isset($_POST['deleteAvatar'])) {
         if (removeAvatar($_POST['deleteAvatar'])) {
             add_toast('Profile Image deleted', 'success');
-            $userDetails = user_exists($_SESSION['username']);
+            $userDetails = user_exists($_SESSION['username'], false, dbType);
         } else {
             add_toast('something wrong! Try later', 'error');
         }

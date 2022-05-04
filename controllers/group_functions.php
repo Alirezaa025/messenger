@@ -109,13 +109,13 @@ function abstractGroup($groupID)
 
         $usersCount = count($members);
 
-        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_admin` == ?';
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_admin` = ?';
         $row = $conn->prepare($query);
-        $row->execute([$groupID, true]);
+        $row->execute([$groupID, '1']);
         while ($admins[] = $row->fetchColumn());
         $admins = array_slice($admins, 0, count($admins) - 1);
 
-        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_block` == ?';
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_block` = ?';
         $row = $conn->prepare($query);
         $row->execute([$groupID, true]);
         while ($blocks[] = $row->fetchColumn());
@@ -194,13 +194,12 @@ if (isset($_POST['function']) && $_POST['function'] == 'hashFileJS') {
     if ($_POST['dbType'] == 'file') {
         messageHash($_POST['groupID']);
     } elseif ($_POST['dbType'] == 'mysql') {
+        require_once 'dbConnection.php';
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
-        
-        $query = "SELECT MD5( GROUP_CONCAT( CONCAT_WS('#',F1,F3,FN) SEPARATOR '##' ) ) FROM `messages";
-        $row = $conn->prepare($query);
-        $row->execute();
-        echo $row->fetchColumn();
+        $query = "checksum table `messages`";
+        $hash = $conn->query($query)->fetch(PDO::FETCH_ASSOC)['Checksum'];
+        echo $hash;
     }
 }
 

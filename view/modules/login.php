@@ -97,7 +97,7 @@ function process_inputs()
     $password = sha1($_POST['password']);
 
 
-    if (!($user_data = user_exists($username))) {
+    if (!($user_data = user_exists($username, false, dbType))) {
         add_toast('username does not exists', 'error');
         return;
     }

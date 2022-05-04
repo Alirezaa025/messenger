@@ -31,7 +31,7 @@ function get_contents()
 function process_inputs()
 {
     global $details;
-    $details = user_exists(array_keys($_GET)['0']);
+    $details = user_exists(array_keys($_GET)['0'], false, dbType);
     echo '<pre>';
     print_r($details);
     echo '</pre>';

@@ -141,47 +141,87 @@ function readMessages($groupID)
  */
 function uploadImage($groupID, $image, $username, $type = 'image')
 {
-    $format = pathinfo($image['name'], PATHINFO_EXTENSION);
+    if (dbType == 'file') {
+        $format = pathinfo($image['name'], PATHINFO_EXTENSION);
 
-    if ($type == 'avatar') {
-        if (!file_exists('db/users_avatar')) {
-            mkdir('db/users_avatar');
-        }
-        $userID = findID($username);
-        if (!$userID) {
-            add_toast("Something Wrong, try again", 'error');
-            return false;
-        }
+        if ($type == 'avatar') {
+            if (!file_exists('db/users_avatar')) {
+                mkdir('db/users_avatar');
+            }
+            $userID = findID($username);
+            if (!$userID) {
+                add_toast("Something Wrong, try again", 'error');
+                return false;
+            }
 
-        $targetUpload = "db/users_avatar/$userID.jpg";
-        $counter = 0;
-        $tmp = $userID;
+            $targetUpload = "db/users_avatar/$userID.jpg";
+            $counter = 0;
+            $tmp = $userID;
 
-        while (file_exists("db/users_avatar/$tmp.jpg")) {
-            $counter++;
-            $tmp = $userID . "_$counter";
-            $targetUpload = "db/users_avatar/$tmp.jpg";
-        }
-        changeAvatar($userID, "db/users_avatar/$tmp.jpg");
-    } else {
-        do {
-            $name = rand(1111, 9999);
-            $targetUpload = "db/groups/$groupID/image/$name.$format";
-        } while (file_exists("db/groups/$groupID/image/$name.$format"));
-    }
-
-
-    // $imageSize = formatSizeUnits($image['size']);
-
-
-    if (move_uploaded_file($image["tmp_name"], $targetUpload)) {
-        if ($type != 'avatar') {
-            addMessage("$name.$format", $groupID, 'image', $_SESSION['user_id'], dbType);
+            while (file_exists("db/users_avatar/$tmp.jpg")) {
+                $counter++;
+                $tmp = $userID . "_$counter";
+                $targetUpload = "db/users_avatar/$tmp.jpg";
+            }
+            changeAvatar($userID, "db/users_avatar/$tmp.jpg");
         } else {
-            add_toast('image add successfully', 'success');
+            do {
+                $name = rand(1111, 9999);
+                $targetUpload = "db/groups/$groupID/image/$name.$format";
+            } while (file_exists("db/groups/$groupID/image/$name.$format"));
         }
-    } else {
-        add_toast("Something Wrong, try again", 'error');
+
+        if (move_uploaded_file($image["tmp_name"], $targetUpload)) {
+            if ($type != 'avatar') {
+                addMessage("$name.$format", $groupID, 'image', $_SESSION['user_id'], dbType);
+            } else {
+                add_toast('image add successfully', 'success');
+            }
+        } else {
+            add_toast("Something Wrong, try again", 'error');
+        }
+    } elseif (dbType == 'mysql') {
+        $format = pathinfo($image['name'], PATHINFO_EXTENSION);
+
+        if ($type == 'avatar') {
+            if (!file_exists('mysqlDB/users_avatar')) {
+                mkdir('mysqlDB/users_avatar');
+            }
+            $userID = findID($username);
+            if (!$userID) {
+                add_toast("Something Wrong, try again", 'error');
+                return false;
+            }
+
+            $targetUpload = "mysqlDB/users_avatar/$userID.jpg";
+            $counter = 0;
+            $tmp = $userID;
+
+            while (file_exists("mysqlDB/users_avatar/$tmp.jpg")) {
+                $counter++;
+                $tmp = $userID . "_$counter";
+                $targetUpload = "mysqlDB/users_avatar/$tmp.jpg";
+            }
+            changeAvatar($userID, "mysqlDB/users_avatar/$tmp.jpg");
+        } else {
+            if (!file_exists("mysqlDB/$groupID")) {
+                mkdir("mysqlDB/$groupID");
+            }
+            do {
+                $name = rand(1111, 9999);
+                $targetUpload = "mysqlDB/$groupID/$name.$format";
+            } while (file_exists("mysqlDB/$groupID/$name.$format"));
+        }
+
+        if (move_uploaded_file($image["tmp_name"], $targetUpload)) {
+            if ($type != 'avatar') {
+                addMessage("$name.$format", $groupID, 'image', $_SESSION['user_id'], dbType);
+            } else {
+                add_toast('image add successfully', 'success');
+            }
+        } else {
+            add_toast("Something Wrong, try again", 'error');
+        }
     }
 }
 
@@ -219,14 +259,13 @@ function loadMessages($messages, $rule)
 {
     foreach ($messages as $id => $message) { ?>
         <?php if (dbType == 'mysql') {
-            
+
             $message['userID'] = $message['user_id'];
             unset($message['user_id']);
-
         } ?>
         <div id="messageBody" class="flex flex-row<?= ($message['userID'] == findID($_SESSION['username'])) ? '-reverse' : '' ?> my-2 ">
             <div class="w-8 h-8 relative flex flex-shrink-0 flex-row-reverse self-stretch my-auto <?= ($message['userID'] == findID($_SESSION['username'])) ? 'ml-4' : 'mr-4' ?>">
-                <?php $Avatar = user_exists(findUsername($message['userID'])) ?>
+                <?php $Avatar = user_exists(findUsername($message['userID']), false, dbType) ?>
                 <?php if (!empty($Avatar['avatar'])) : ?>
                     <img class="shadow-md rounded-full w-full h-full overflow-hidden" src="<?= main_url . $Avatar['avatar'] ?>" alt="">
                 <?php else : ?>
@@ -237,7 +276,7 @@ function loadMessages($messages, $rule)
                 <div class="flex <?= ($message['userID'] == findID($_SESSION['username'])) ? 'flex-row-reverse' : '' ?> items-center group overflow-hidden">
                     <p class="break-all <?= $message['type'] != 'image' ? 'rounded-full px-6 py-3' : 'rounded p-1' ?> <?= ($message['userID'] == findID($_SESSION['username'])) ? 'bg-blue-800' : 'bg-gray-800' ?> max-w-xs lg:max-w-md text-gray-200">
                         <?php if ($message['type'] == 'image') : ?>
-                            <img onclick="biggerSize(this)" class='cursor-zoom-in relative rounded h-full object-contain' src=<?= main_url . "db/groups/$_POST[groupID]/image/$message[message]" ?>>
+                            <img onclick="biggerSize(this)" class='cursor-zoom-in relative rounded h-full object-contain' src=<?= dbType == 'file' ? main_url . "db/groups/$_POST[groupID]/image/$message[message]" : main_url . "mysqlDB/$_POST[groupID]/$message[message]" ?>>
                         <?php else : ?>
                             <?= $message['message'] ?>
                         <?php endif ?>
@@ -272,7 +311,7 @@ function loadMessagesJS($id, $message, $userID, $rule, $main_url, $dbType)
     ?>
     <div id="messageBody" class="flex flex-row<?= ($message['userID'] == $userID) ? '-reverse' : '' ?> my-2">
         <div class="w-8 h-8 relative flex flex-shrink-0 self-stretch my-auto <?= ($message['userID'] == $userID) ? 'ml-4 ' : 'mr-4' ?>">
-            <?php $Avatar = user_exists(findUsernameJS($message['userID'], $dbType), true) ?>
+            <?php $Avatar = user_exists(findUsernameJS($message['userID'], $dbType), true, $dbType) ?>
             <?php if (!empty($Avatar['avatar'])) : ?>
                 <img class="shadow-md rounded-full w-full h-full overflow-hidden" src="<?= $main_url . $Avatar['avatar'] ?>" alt="">
             <?php else : ?>
@@ -283,7 +322,7 @@ function loadMessagesJS($id, $message, $userID, $rule, $main_url, $dbType)
             <div class="flex <?= ($message['userID'] == $userID) ? 'flex-row-reverse' : '' ?> items-center group overflow-hidden">
                 <p class="break-all <?= $message['type'] != 'image' ? 'rounded-full px-6 py-3' : 'rounded p-1' ?> <?= ($message['userID'] == $userID) ? 'bg-blue-800' : 'bg-gray-800' ?> max-w-xs lg:max-w-md text-gray-200">
                     <?php if ($message['type'] == 'image') : ?>
-                        <img onclick="biggerSize(this)" class='cursor-zoom-in relative rounded h-full object-contain' src=<?= $main_url . "db/groups/$_POST[groupID]/image/$message[message]" ?>>
+                        <img onclick="biggerSize(this)" class='cursor-zoom-in relative rounded h-full object-contain' src=<?= $dbType == 'file' ? $main_url . "db/groups/$_POST[groupID]/image/$message[message]" : $main_url . "mysqlDB/$_POST[groupID]/$message[message]" ?>>
                     <?php else : ?>
                         <?= $message['message'] ?>
                     <?php endif ?>
@@ -328,7 +367,6 @@ function readMessagesJS($groupID, $userID, $rule, $main_url, $dbType)
         $row->execute([$groupID]);
         while ($messages[] = $row->fetch(PDO::FETCH_ASSOC));
         $messages = array_slice($messages, 0, count($messages) - 1);
-
     }
 
     foreach ($messages as $id => $message) {

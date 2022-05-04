@@ -114,7 +114,7 @@ function process_inputs()
 
   signup_validation($name, $username, $email, $password);
 
-  if (user_exists($username)) {
+  if (user_exists($username, false, dbType)) {
     add_toast('username already exists', 'error');
     return;
   }
