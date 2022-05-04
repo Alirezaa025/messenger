@@ -150,32 +150,47 @@ function abstractGroup($groupID)
  * @param boolean $type false=block true=unblock
  * @return boolean $username
  */
-function memberOperator($groupID, $username, $type)
+function memberOperator($groupID, $userID, $type)
 {
-    $target = "db/groups/$groupID/log.txt";
-    if (!file_exists($target)) {
-        return false;
-    }
-
-    $group = file_get_contents($target);
-    $group = json_decode($group, true);
-
-    if (!$type) {
-        array_push($group['blocks'], $username);
-    } else {
-        $key = array_search($username, $group['blocks']);
-
-        if ($key !== false) {
-            unset($group['blocks'][$key]);
-        } else {
+    if (dbType == 'file') {
+        $target = "db/groups/$groupID/log.txt";
+        if (!file_exists($target)) {
             return false;
         }
+
+        $group = file_get_contents($target);
+        $group = json_decode($group, true);
+
+        if (!$type) {
+            array_push($group['blocks'], $userID);
+        } else {
+            $key = array_search($userID, $group['blocks']);
+
+            if ($key !== false) {
+                unset($group['blocks'][$key]);
+            } else {
+                return false;
+            }
+        }
+
+        $group = json_encode($group);
+        file_put_contents($target, $group);
+
+        return true;
+    } elseif (dbType == 'mysql') {
+
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+        if (!$type) {
+            $query = "UPDATE `groups_users` SET `is_block` = b'1' WHERE `group_id` = ? AND `user_id` = ?";
+        } else {
+            $query = "UPDATE `groups_users` SET `is_block` = b'0' WHERE `group_id` = ? AND `user_id` = ?";
+        }
+        $group = $conn->prepare($query);
+        $group->execute([$groupID, $userID]);
+
+        return true;
     }
-
-    $group = json_encode($group);
-    file_put_contents($target, $group);
-
-    return true;
 }
 
 
@@ -232,17 +247,30 @@ function addAdmin($groupID, $userID)
 
 function adminOperator($userID, $groupID, $type)
 {
-    $group = file_get_contents("db/groups/$groupID/log.txt");
-    $group = json_decode($group, true);
+    if (dbType == 'file') {
+        $group = file_get_contents("db/groups/$groupID/log.txt");
+        $group = json_decode($group, true);
 
-    if ($type == 'add') {
-        array_push($group['admins'], $userID);
-    } else {
-        unset($group['admins'][array_search($userID, $group['admins'])]);
-    }
+        if ($type == 'add') {
+            array_push($group['admins'], $userID);
+        } else {
+            unset($group['admins'][array_search($userID, $group['admins'])]);
+        }
 
 
-    if (file_put_contents("db/groups/$groupID/log.txt", json_encode($group))) {
+        if (file_put_contents("db/groups/$groupID/log.txt", json_encode($group))) {
+            return true;
+        }
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+        if ($type == 'add') {
+            $query = 'UPDATE `groups_users` SET `is_admin` = 1 WHERE `group_id` = ? AND `user_id` = ?';
+        } else {
+            $query = 'UPDATE `groups_users` SET `is_admin` = 0 WHERE `group_id` = ? AND `user_id` = ?';
+        }
+        $group = $conn->prepare($query);
+        $group->execute([$groupID, $userID]);
         return true;
     }
 }
