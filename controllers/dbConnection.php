@@ -9,7 +9,7 @@ class MySqlDatabaseConnection
 
     private function __construct()
     {
-        $this->conn = new PDO("mysql:host=localhost;dbname=maktab", 'root', '');
+        $this->conn = new PDO("mysql:host=localhost;dbname=messenger", 'root', '');
     }
 
     public static function getInstance()
