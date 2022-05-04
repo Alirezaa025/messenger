@@ -3,30 +3,69 @@
 /**
  * check for username exists in the database
  * if exists, return data of username
- * @return array|false
+ * 
+ * @param string $username
+ * @param bool $is_ajax
+ * 
+ * @return array|false|void
  */
-function user_exists($username)
+function user_exists($username, $is_ajax = false)
 {
-    $users_data = file_get_contents(db_path);
-    $users_data = json_decode($users_data, true);
+    if (dbType == 'file') {
+        if (!$is_ajax) {
+            $users_data = file_get_contents(db_path);
+        } else {
+            $users_data = file_get_contents('../db/users_data.txt');
+        }
+        $users_data = json_decode($users_data, true);
+        if (!is_array($users_data)) { // if first users requested
+            return false;
+        }
+        if (array_key_exists($username, $users_data)) {
+            return
+                [
+                    'id'      => $users_data[$username]['id'],
+                    'username' => $username,
+                    'name'    => $users_data[$username]['name'],
+                    'email'   => $users_data[$username]['email'],
+                    'password' => $users_data[$username]['password'],
+                    'avatar'  => $users_data[$username]['avatar'] ?? '',
+                    'groups'  => $users_data[$username]['groups'] ?? [],
+                    'bio'     => $users_data[$username]['bio'] ?? '',
+                ];
+        } else {
+            return false;
+        }
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
 
-    if (!is_array($users_data)) { // if first users requested
-        return false;
-    }
-    if (array_key_exists($username, $users_data)) {
+        $query = "SELECT * FROM `users` WHERE `username` = '$username'";
+        $userInfo = $conn->query($query);
+        $userInfo = $userInfo->fetch(PDO::FETCH_ASSOC);
+
+        if (!$userInfo) {
+            return false;
+        }
+
+        $query = "SELECT `group_id` FROM `groups_users` WHERE `user_id` = '$userInfo[user_id]';";
+        $userGroups = $conn->query($query);
+        $userGroups = $userGroups->fetch(PDO::FETCH_NUM);
+        if (!$userGroups) {
+            return false;
+        }
+
         return
             [
-                'id' => $users_data[$username]['id'],
+                'id'      => $userInfo['user_id'],
                 'username' => $username,
-                'name' => $users_data[$username]['name'],
-                'email' => $users_data[$username]['email'],
-                'password' => $users_data[$username]['password'],
-                'avatar' => $users_data[$username]['avatar'] ?? '',
-                'groups' => $users_data[$username]['groups'] ?? [],
-                'bio' => $users_data[$username]['bio'] ?? '',
+                'name'    => $userInfo['name'],
+                'email'   => $userInfo['email'],
+                'password' => $userInfo['password'],
+                'avatar'  => $userInfo['avatar'] ?? '',
+                'groups'  => $userGroups ?? [],
+                'bio'     => $userInfo['bio'] ?? '',
             ];
-    } else {
-        return false;
     }
 }
 
@@ -36,39 +75,50 @@ function user_exists($username)
  * if exists, return data of username
  * @return array|false
  */
-function user_existsJS($username)
-{
-    $users_data = file_get_contents('../db/users_data.txt');
-    $users_data = json_decode($users_data, true);
+// function user_existsJS($username)
+// {
+//     $users_data = file_get_contents('../db/users_data.txt');
+//     $users_data = json_decode($users_data, true);
 
-    if (!is_array($users_data)) { // if first users requested
-        return false;
-    }
-    if (array_key_exists($username, $users_data)) {
-        return
-            [
-                'id' => $users_data[$username]['id'],
-                'username' => $username,
-                'name' => $users_data[$username]['name'],
-                'email' => $users_data[$username]['email'],
-                'password' => $users_data[$username]['password'],
-                'avatar' => $users_data[$username]['avatar'] ?? '',
-                'groups' => $users_data[$username]['groups'] ?? [],
-                'bio' => $users_data[$username]['bio'] ?? '',
-            ];
-    } else {
-        return false;
-    }
-}
+//     if (!is_array($users_data)) { // if first users requested
+//         return false;
+//     }
+//     if (array_key_exists($username, $users_data)) {
+//         return
+//             [
+//                 'id' => $users_data[$username]['id'],
+//                 'username' => $username,
+//                 'name' => $users_data[$username]['name'],
+//                 'email' => $users_data[$username]['email'],
+//                 'password' => $users_data[$username]['password'],
+//                 'avatar' => $users_data[$username]['avatar'] ?? '',
+//                 'groups' => $users_data[$username]['groups'] ?? [],
+//                 'bio' => $users_data[$username]['bio'] ?? '',
+//             ];
+//     } else {
+//         return false;
+//     }
+// }
 
 
 function email_exists($email)
 {
-    $users_data = file_get_contents(db_path);
-    if (!preg_match("/\"$email\"/", $users_data)) {
-        return false;
+    if (dbType == 'file') {
+        $users_data = file_get_contents(db_path);
+        if (!preg_match("/\"$email\"/", $users_data)) {
+            return false;
+        }
+        return true;
+    } else {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "SELECT COUNT(*) AS count FROM `users` WHERE `email` = '$email'";
+        $userEmail = $conn->query($query);
+        $userEmail = $userEmail->fetch(PDO::FETCH_ASSOC);
+
+        return $userEmail['count'] == 0 ? false : true;
     }
-    return true;
 }
 
 
@@ -82,38 +132,57 @@ function add_user($name, $username, $email, $password)
         return false;
     }
 
-    // read data from database
-    $data = file_get_contents(db_path);
-    $users_data = json_decode($data, true); // data stored in json format in database so use decode
+    if (dbType == 'file') {
+        // read data from database
+        $data = file_get_contents(db_path);
+        $users_data = json_decode($data, true); // data stored in json format in database so use decode
 
-    // add user information to array of data
-    $users_data[$username] = [
-        'id' => rand(1112, 9999),
-        'username' => $username,
-        'name' => $name,
-        'email' => $email,
-        'password' => $password,
-        'groups' => [1111], //default group for all of user
-    ];
+        // add user information to array of data
+        $users_data[$username] = [
+            'id' => rand(1112, 9999),
+            'username' => $username,
+            'name' => $name,
+            'email' => $email,
+            'password' => $password,
+            'groups' => [1111], //default group for all of user
+        ];
 
-    // add user to group log
-    addToGroup(1111, $users_data[$username]['id']);
+        // add user to group log
+        addToGroup(1111, $users_data[$username]['id']);
 
-    // create avatar directories if it doesn't exist for save user avatar
-    if (!file_exists('db/users_avatar')) {
-        mkdir('db/users_avatar');
+        // create avatar directories if it doesn't exist for save user avatar
+        if (!file_exists('db/users_avatar')) {
+            mkdir('db/users_avatar');
+        }
+
+        set_user_cookie($username);
+
+        set_user_session($users_data[$username]);
+
+        $json_users_data = json_encode($users_data); // encode data in json format 
+
+        if (file_put_contents(db_path, $json_users_data))   // write dat to database
+            return true;
+        else
+            return false;
+    } elseif ('mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "INSERT INTO `users`
+        (`user_id`, `username`, `name`, `email`, `password`, `avatar`, `bio`) VALUES 
+        (NULL, ?, ?, ?, ?,'','')";
+
+        $tmp = $conn->prepare($query);
+        $tmp->execute([$username, $name, $email, $password]);
+
+        $query = "SELECT `user_id` FROM `users` WHERE `username` = ?";
+        $tmp = $conn->prepare($query);
+        $tmp->execute([$username]);
+        $userID = $tmp->fetch();
+
+        addToGroup(1, $userID['user_id']);
     }
-
-    set_user_cookie($username);
-
-    set_user_session($users_data[$username]);
-
-    $json_users_data = json_encode($users_data); // encode data in json format 
-
-    if (file_put_contents(db_path, $json_users_data))   // write dat to database
-        return true;
-    else
-        return false;
 }
 
 /**
@@ -121,18 +190,30 @@ function add_user($name, $username, $email, $password)
  * add user to group log
  * @param integer $groupID
  * @param integer $userID
- * @return boolean
+ * @return boolean|void
  */
 function addToGroup($groupID, $userID)
 {
-    $group = file_get_contents('db/groups/' . $groupID . '/log.txt');
-    $group = json_decode($group, true);
+    if (dbType == 'file') {
+        $group = file_get_contents('db/groups/' . $groupID . '/log.txt');
+        $group = json_decode($group, true);
+        
+        array_push($group['members'], $userID);
+        $group['usersCount']++;
 
-    array_push($group['members'], $userID);
-    $group['usersCount']++;
+        $group = json_encode($group);
+        file_put_contents('db/groups/' . $groupID . '/log.txt', $group);
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+        
+        echo $groupID;
+        echo $userID;
+        $query = "INSERT INTO `groups_users` VALUES (?, ?, 0, 0)";
 
-    $group = json_encode($group);
-    file_put_contents('db/groups/' . $groupID . '/log.txt', $group);
+        $tmp = $conn->prepare($query);
+        $tmp->execute([$userID, $groupID]);
+    }
 }
 
 
@@ -276,7 +357,7 @@ function editUser($oldUsername, $newUsername, $email = null, $bio = null, $group
 
 /**
  * read users groups from database
- * @return groups_id
+ * @return $groups_id
  */
 function readUserGroups($username)
 {
