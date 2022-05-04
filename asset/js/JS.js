@@ -198,7 +198,6 @@ $("#inputMessage").submit(function (e) {
     userID: userID,
     dbType: dbType,
   };
-  console.log(messageDetails)
   $.post(
     `${main_url}controllers/message_functions.php`,
     messageDetails,
@@ -222,24 +221,39 @@ $("#inputMessage").submit(function (e) {
 
 // read message of group from group db
 function worker(groupID, userID, rule = "main", main_url, dbType = "mysql") {
-  if (true) {
-    $.post(
-      `${main_url}controllers/message_functions.php`,
-      {
-        function: "readMessageJS",
-        groupID: groupID,
-        userID: userID,
-        rule: rule,
-        main_url: main_url,
-        dbType: dbType,
-      },
-      function (response) {
-        $("#chatBody").html(response);
+  const hash =
+    document.cookie
+      .match("(^|;)\\s*" + "groupMessageHash" + "\\s*=\\s*([^;]+)")
+      ?.pop() || "";
+
+  $.post(
+    `${main_url}controllers/group_functions.php`,
+    {
+      function: "hashFileJS",
+      groupID: groupID,
+      dbType: dbType,
+    },
+    function (checkedHash) {
+      if (hash != checkedHash) {
+        $.post(
+          `${main_url}controllers/message_functions.php`,
+          {
+            function: "readMessageJS",
+            groupID: groupID,
+            userID: userID,
+            rule: rule,
+            main_url: main_url,
+            dbType: dbType,
+          },
+          function (response) {
+            $("#chatBody").html(response);
+          }
+        );
+        $("#chatBody").animate(
+          { scrollTop: $("#chatBody").prop("scrollHeight") },
+          500
+        );
       }
-    );
-    $("#chatBody").animate(
-      { scrollTop: $("#chatBody").prop("scrollHeight") },
-      500
-    );
-  }
+    }
+  );
 }
