@@ -265,18 +265,18 @@ function loadMessages($messages, $rule)
 
 
 // load messages oh page
-function loadMessagesJS($id, $message, $userID, $rule, $main_url)
+function loadMessagesJS($id, $message, $userID, $rule, $main_url, $dbType)
 {
     include_once('users_functions.php');
     include_once('../view/modules/chatButton.php');
     ?>
     <div id="messageBody" class="flex flex-row<?= ($message['userID'] == $userID) ? '-reverse' : '' ?> my-2">
         <div class="w-8 h-8 relative flex flex-shrink-0 self-stretch my-auto <?= ($message['userID'] == $userID) ? 'ml-4 ' : 'mr-4' ?>">
-            <?php $Avatar = user_exists(findUsernameJS($message['userID']), true) ?>
+            <?php $Avatar = user_exists(findUsernameJS($message['userID'], $dbType), true) ?>
             <?php if (!empty($Avatar['avatar'])) : ?>
                 <img class="shadow-md rounded-full w-full h-full overflow-hidden" src="<?= $main_url . $Avatar['avatar'] ?>" alt="">
             <?php else : ?>
-                <div class="bg-pink-500 shadow-md rounded-full w-full h-full object-cover flex justify-center items-center"><?= substr(findUsernameJS($message['userID']), 0, 1) ?></div>
+                <div class="bg-pink-500 shadow-md rounded-full w-full h-full object-cover flex justify-center items-center"><?= substr(findUsernameJS($message['userID'], $dbType), 0, 1) ?></div>
             <?php endif; ?>
         </div>
         <div class="messages text-sm text-gray-700 grid grid-flow-row gap-2">
@@ -334,7 +334,7 @@ function readMessagesJS($groupID, $userID, $rule, $main_url, $dbType)
     foreach ($messages as $id => $message) {
         $message['userID'] = $message['user_id'];
         unset($message['user_id']);
-        loadMessagesJS($id, $message, $userID, $rule, $main_url);
+        loadMessagesJS($id, $message, $userID, $rule, $main_url, $dbType);
     }
 }
 

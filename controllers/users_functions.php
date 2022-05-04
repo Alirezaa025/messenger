@@ -138,7 +138,7 @@ function add_user($name, $username, $email, $password)
             return true;
         else
             return false;
-    } elseif (dbType =='mysql') {
+    } elseif (dbType == 'mysql') {
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
 
@@ -170,7 +170,7 @@ function addToGroup($groupID, $userID)
     if (dbType == 'file') {
         $group = file_get_contents('db/groups/' . $groupID . '/log.txt');
         $group = json_decode($group, true);
-        
+
         array_push($group['members'], $userID);
         $group['usersCount']++;
 
@@ -179,7 +179,7 @@ function addToGroup($groupID, $userID)
     } elseif (dbType == 'mysql') {
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
-        
+
         $query = "INSERT INTO `groups_users` VALUES (?, ?, 0, 0)";
 
         $tmp = $conn->prepare($query);
@@ -406,12 +406,22 @@ function findID($username)
  */
 function findUsername($userID)
 {
-    $users = file_get_contents('db/users_data.txt');
-    $users = json_decode($users, true);
-    foreach ($users as $user) {
-        if ($user['id'] == $userID) {
-            return $user['username'];
+    if (dbType == 'file') {
+        $users = file_get_contents('db/users_data.txt');
+        $users = json_decode($users, true);
+        foreach ($users as $user) {
+            if ($user['id'] == $userID) {
+                return $user['username'];
+            }
         }
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "SELECT `username` FROM `users` WHERE `user_id` = ?";
+        $row = $conn->prepare($query);
+        $row->execute([$userID]);
+        return $row->fetchColumn();
     }
 }
 
@@ -422,14 +432,25 @@ function findUsername($userID)
  * @param integer $userID
  * @return string $username
  */
-function findUsernameJS($userID)
+function findUsernameJS($userID, $dbType)
 {
-    $users = file_get_contents('../db/users_data.txt');
-    $users = json_decode($users, true);
-    foreach ($users as $user) {
-        if ($user['id'] == $userID) {
-            return $user['username'];
+    if ($dbType == 'file') {
+        $users = file_get_contents('../db/users_data.txt');
+        $users = json_decode($users, true);
+        foreach ($users as $user) {
+            if ($user['id'] == $userID) {
+                return $user['username'];
+            }
         }
+    } elseif ($dbType == 'mysql') {
+        require_once 'dbConnection.php';
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "SELECT `username` FROM `users` WHERE `user_id` = ?";
+        $row = $conn->prepare($query);
+        $row->execute([$userID]);
+        return $row->fetchColumn();
     }
 }
 
