@@ -428,15 +428,26 @@ function addGroupToUser($username, $groupID)
  * findID
  * find id of user from username
  * @param string $username
- * @return integer $userId
+ * @return integer|bool $userId
  */
 function findID($username)
 {
-    $user = user_exists($username, false, dbType);
-    if ($user) {
-        return $user['id'];
-    } else {
-        return false;
+    if (dbType == 'file') {
+        $user = user_exists($username, false, dbType);
+        if ($user) {
+            return $user['id'];
+        } else {
+            return false;
+        }
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+        $query = 'SELECT `user_id` FROM `users` WHERE `username` = ?';
+
+        $id = $conn->prepare($query);
+        $id->execute([$username]);
+
+        return $id->fetchColumn();
     }
 }
 
