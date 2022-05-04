@@ -65,19 +65,29 @@ if (isset($_POST['function']) && $_POST['function'] == 'addMessage') {
 /**
  * edit selected message
  */
-function editMessage($groupID, $messageId, $editedMessage)
+function editMessage($groupID, $messageID, $editedMessage)
 {
-    $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
-    $messages = json_decode($messages, true);
+    if (dbType == 'file') {
+        $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
+        $messages = json_decode($messages, true);
 
-    $messages[$messageId]['message'] = $editedMessage;
+        $messages[$messageID]['message'] = $editedMessage;
 
-    $messages = json_encode($messages);
+        $messages = json_encode($messages);
 
-    if (file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages)) {
+        if (file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages)) {
+            return true;
+        }
+        return false;
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = 'UPDATE `messages` SET `message` = ? WHERE `message_id` = ? AND `group_id` = ?';
+        $group = $conn->prepare($query);
+        $group->execute([$editedMessage, $messageID, $groupID]);
         return true;
     }
-    return false;
 }
 
 /**

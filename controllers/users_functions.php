@@ -294,38 +294,72 @@ function check_cookie()
  */
 function editUser($oldUsername, $newUsername, $email = null, $bio = null, $group = null)
 {
-    $users = file_get_contents('db/users_data.txt');
-    $users = json_decode($users, true);
+    if (dbType == 'file') {
+        $users = file_get_contents('db/users_data.txt');
+        $users = json_decode($users, true);
 
-    if (!array_key_exists($oldUsername, $users)) {
-        return false;
+        if (!array_key_exists($oldUsername, $users)) {
+            return false;
+        }
+
+
+        if ($oldUsername != $newUsername) {
+            $users[$oldUsername]['username'] = $newUsername;
+            $users[$newUsername] = $users[$oldUsername];
+            unset($users[$oldUsername]);
+            $_SESSION['username'] = $newUsername;
+            setcookie('username', $newUsername, time() + 60 * 60 * 24);
+        }
+
+        if (!empty($email)) {
+            $users[$newUsername]['email'] = $email;
+        }
+
+        if (!empty($bio)) {
+            $users[$newUsername]['bio'] = $bio;
+        }
+
+        if (!empty($group)) {
+            array_push($users[$newUsername]['groups'], $group);
+        }
+
+        $users = json_encode($users);
+        file_put_contents(db_path, $users);
+
+        return true;
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+
+        if ($oldUsername != $newUsername) {
+            $query = 'UPDATE `users` SET 
+            `username` = ?
+            WHERE `username` = ?';
+            $group = $conn->prepare($query);
+            $group->execute([$newUsername, $oldUsername]);
+            $_SESSION['username'] = $newUsername;
+            setcookie('username', $newUsername, time() + 60 * 60 * 24);
+        }
+
+        if (!empty($email)) {
+            $query = 'UPDATE `users` SET 
+            `email` = ?
+            WHERE `username` = ?';
+            $group = $conn->prepare($query);
+            $group->execute([$email, $oldUsername]);
+        }
+
+        if (!empty($bio)) {
+            $query = 'UPDATE `users` SET 
+            `bio` = ?
+            WHERE `username` = ?';
+            $group = $conn->prepare($query);
+            $group->execute([$bio, $oldUsername]);
+        }
+
+        return true;
     }
-
-
-    if ($oldUsername != $newUsername) {
-        $users[$oldUsername]['username'] = $newUsername;
-        $users[$newUsername] = $users[$oldUsername];
-        unset($users[$oldUsername]);
-        $_SESSION['username'] = $newUsername;
-        setcookie('username', $newUsername, time() + 60 * 60 * 24);
-    }
-
-    if (!empty($email)) {
-        $users[$newUsername]['email'] = $email;
-    }
-
-    if (!empty($bio)) {
-        $users[$newUsername]['bio'] = $bio;
-    }
-
-    if (!empty($group)) {
-        array_push($users[$newUsername]['groups'], $group);
-    }
-
-    $users = json_encode($users);
-    file_put_contents(db_path, $users);
-
-    return true;
 }
 
 
@@ -510,9 +544,9 @@ function removeAvatar($selectedAvatar)
         $user = user_exists($_SESSION['username'], false, dbType);
         if ($user['avatar'] == $selectedAvatar) {
             if (dbType == 'file') {
-            $tmp = json_decode(file_get_contents('db/users_data.txt'), true);
-            $tmp[$_SESSION['username']]['avatar'] = '';
-            file_put_contents('db/users_data.txt', json_encode($tmp));
+                $tmp = json_decode(file_get_contents('db/users_data.txt'), true);
+                $tmp[$_SESSION['username']]['avatar'] = '';
+                file_put_contents('db/users_data.txt', json_encode($tmp));
             } elseif (dbType == 'mysql') {
                 $connInstance = MySqlDatabaseConnection::getInstance();
                 $conn = $connInstance->getConnection();
