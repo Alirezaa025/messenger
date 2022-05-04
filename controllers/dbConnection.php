@@ -1,6 +1,5 @@
 <?php
 
-
 class MySqlDatabaseConnection
 {
     private static $instance = null;

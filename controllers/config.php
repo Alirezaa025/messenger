@@ -11,7 +11,7 @@ define('db_path', 'db/users_data.txt');
 define('group_db_path', 'db/groups/');
 
 // select type of stored database
-define('dbType', 'Mysql');
+define('dbType', 'mysql');
 
 
 foreach (glob('controllers/*.php') as $file) {
@@ -93,7 +93,7 @@ if (dbType == 'file') {
             file_put_contents('db/groups/' . $groupID . '/log.txt', json_encode($log));
         }
     }
-} elseif (dbType == 'Mysql') {
+} elseif (dbType == 'mysql') {
     $connInstance = MySqlDatabaseConnection::getInstance();
     $conn = $connInstance->getConnection();
 
@@ -129,7 +129,6 @@ if (dbType == 'file') {
 
     $conn->query($query);
 }
-
 
 session_start();
 

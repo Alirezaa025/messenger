@@ -162,7 +162,7 @@ function get_contents()
                                                 <?php elseif (in_array($member, $groupInfo['admins'])) : ?>
                                                     <button name="removeAdmin" value="<?= $member ?>">
                                                         <i class="fa-solid fa-circle-minus text-yellow-500"></i>
-                                                    </button>   
+                                                    </button>
                                                 <?php endif ?>
                                                 <?php if (!in_array($member, $groupInfo['blocks'])) : ?>
                                                     <button name="blockMember" value="<?= $member ?>">
@@ -188,9 +188,8 @@ function get_contents()
 
                                 <script type="text/javascript">
                                     $(document).ready(function() {
-                                        document.cookie = "groupMessageHash=<?= md5_file("db/groups/$_POST[groupID]/messages.txt") ?>";
                                         setInterval(function() {
-                                            worker(<?= $_POST['groupID'] ?>, <?= $_SESSION['user_id'] ?>, "<?= $rule ?>", "<?= main_url ?>")
+                                            worker(<?= $_POST['groupID'] ?>, <?= $_SESSION['user_id'] ?>, "<?= $rule ?>", "<?= main_url ?>", "<?= dbType ?>")
                                         }, 1000);
 
                                     })
@@ -245,6 +244,7 @@ function get_contents()
                                             <input type="hidden" name="groupID" value="<?= $_POST['groupID'] ?>">
                                             <input type="hidden" name="userID" value="<?= $_SESSION['user_id'] ?>">
                                             <input type="hidden" name="main_url" value="<?= main_url ?>">
+                                            <input type="hidden" name="dbType" value="<?= dbType ?>">
                                             <input type="hidden" name="rule" value="<?= $rule ?>">
                                         </form>
 
@@ -391,9 +391,8 @@ function process_inputs()
         if (adminOperator($_POST['addAdmin'], $_POST['groupID'], 'add')) {
             add_toast('Admin Added', 'success');
             $groupInfo = abstractGroup($_POST['groupID']);
-
         }
-    } else if (isset($_POST['removeAdmin'])){
+    } else if (isset($_POST['removeAdmin'])) {
         if (adminOperator($_POST['removeAdmin'], $_POST['groupID'], 'remove')) {
             add_toast('Admin Removed', 'success');
             $groupInfo = abstractGroup($_POST['groupID']);

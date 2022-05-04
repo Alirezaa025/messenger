@@ -102,28 +102,29 @@ function abstractGroup($groupID)
         $group = $group->fetch(PDO::FETCH_ASSOC);
 
         $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ?';
-        $members = $conn->prepare($query);
-        $members->execute([$groupID]);
-        $members = $members->fetch(PDO::FETCH_NUM);
+        $row = $conn->prepare($query);
+        $row->execute([$groupID]);
+        while ($members[] = $row->fetchColumn());
+        $members = array_slice($members, 0, count($members) - 1);
 
         $usersCount = count($members);
 
-        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_admin` == true';
-        $admins = $conn->prepare($query);
-        $admins->execute([$groupID]);
-        $admins = $admins->fetch(PDO::FETCH_NUM);
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_admin` == ?';
+        $row = $conn->prepare($query);
+        $row->execute([$groupID, true]);
+        while ($admins[] = $row->fetchColumn());
+        $admins = array_slice($admins, 0, count($admins) - 1);
 
-        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_block` == true';
-        $blocks = $conn->prepare($query);
-        $blocks->execute([$groupID]);
-        $blocks = $blocks->fetch(PDO::FETCH_NUM);
+        $query = 'SELECT `user_id` FROM `groups_users` WHERE `group_id` = ? AND `is_block` == ?';
+        $row = $conn->prepare($query);
+        $row->execute([$groupID, true]);
+        while ($blocks[] = $row->fetchColumn());
+        $blocks = array_slice($blocks, 0, count($blocks) - 1);
 
         $query = 'SELECT * FROM `messages` ORDER BY `message_id` DESC LIMIT 1';
         $lastMessage = $conn->prepare($query);
         $lastMessage->execute([$groupID]);
-        $lastMessage = $lastMessage->fetch(PDO::FETCH_NUM);
-
-
+        $lastMessage = $lastMessage->fetch(PDO::FETCH_ASSOC);
 
 
         return [
@@ -134,7 +135,7 @@ function abstractGroup($groupID)
             'members' => $members,
             'blocks' => $blocks,
             // 'lastMessageId' => is_array($messageDetails) && !empty($messageDetails) ? key(array_slice($messageDetails, -1, 1, true)) : '',
-            'lastMessageUser' => !$lastMessage ? '(' : findUsername($lastMessage['user_id']),
+            'lastMessageUser' => $lastMessage ? findUsername($lastMessage['user_id']) : '(',
             'lastMessage'     => $lastMessage ? $lastMessage['message'] : 'Empty',
             'lastMessageTime' => $lastMessage ? $lastMessage['time'] : '',
             'lastMessageType' => $lastMessage ? $lastMessage['type'] : '',
@@ -190,7 +191,17 @@ function messageHash($groupID)
 }
 
 if (isset($_POST['function']) && $_POST['function'] == 'hashFileJS') {
-    messageHash($_POST['groupID']);
+    if ($_POST['dbType'] == 'file') {
+        messageHash($_POST['groupID']);
+    } elseif ($_POST['dbType'] == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+        
+        $query = "SELECT MD5( GROUP_CONCAT( CONCAT_WS('#',F1,F3,FN) SEPARATOR '##' ) ) FROM `messages";
+        $row = $conn->prepare($query);
+        $row->execute();
+        echo $row->fetchColumn();
+    }
 }
 
 /**

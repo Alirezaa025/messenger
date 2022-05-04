@@ -9,9 +9,13 @@
  * 
  * @return array|false|void
  */
-function user_exists($username, $is_ajax = false)
+
+function user_exists($username, $is_ajax = false, $dbType = null)
 {
-    if (dbType == 'file') {
+    $dbType = @dbType ?? null;
+
+
+    if ($dbType == 'file') {
         if (!$is_ajax) {
             $users_data = file_get_contents(db_path);
         } else {
@@ -36,7 +40,7 @@ function user_exists($username, $is_ajax = false)
         } else {
             return false;
         }
-    } elseif (dbType == 'mysql') {
+    } elseif ($dbType == 'mysql') {
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
 
@@ -68,37 +72,6 @@ function user_exists($username, $is_ajax = false)
             ];
     }
 }
-
-/**
- * user_existsJS
- * check for username exists in the database for ajax
- * if exists, return data of username
- * @return array|false
- */
-// function user_existsJS($username)
-// {
-//     $users_data = file_get_contents('../db/users_data.txt');
-//     $users_data = json_decode($users_data, true);
-
-//     if (!is_array($users_data)) { // if first users requested
-//         return false;
-//     }
-//     if (array_key_exists($username, $users_data)) {
-//         return
-//             [
-//                 'id' => $users_data[$username]['id'],
-//                 'username' => $username,
-//                 'name' => $users_data[$username]['name'],
-//                 'email' => $users_data[$username]['email'],
-//                 'password' => $users_data[$username]['password'],
-//                 'avatar' => $users_data[$username]['avatar'] ?? '',
-//                 'groups' => $users_data[$username]['groups'] ?? [],
-//                 'bio' => $users_data[$username]['bio'] ?? '',
-//             ];
-//     } else {
-//         return false;
-//     }
-// }
 
 
 function email_exists($email)
@@ -165,7 +138,7 @@ function add_user($name, $username, $email, $password)
             return true;
         else
             return false;
-    } elseif ('mysql') {
+    } elseif (dbType =='mysql') {
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
 
@@ -207,8 +180,6 @@ function addToGroup($groupID, $userID)
         $connInstance = MySqlDatabaseConnection::getInstance();
         $conn = $connInstance->getConnection();
         
-        echo $groupID;
-        echo $userID;
         $query = "INSERT INTO `groups_users` VALUES (?, ?, 0, 0)";
 
         $tmp = $conn->prepare($query);

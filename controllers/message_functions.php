@@ -3,38 +3,54 @@
 /**
  * add message to group messages
  */
-function addMessage($message, $groupID, $type = 'text', $userID)
+function addMessage($message, $groupID, $type = 'text', $userID, $dbType)
 {
 
-    if ($type == 'text') {
-        $abstract = file_get_contents('../db/groups/' . $groupID . '/log.txt');
-        $messages = file_get_contents('../db/groups/' . $groupID . '/messages.txt');
-    } else {
-        $abstract = file_get_contents('db/groups/' . $groupID . '/log.txt');
-        $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
-    }
-    $abstract = json_decode($abstract, true);
-    $messages = json_decode($messages, true);
+    if ($dbType == 'file') {
+        if ($type == 'text') {
+            $abstract = file_get_contents('../db/groups/' . $groupID . '/log.txt');
+            $messages = file_get_contents('../db/groups/' . $groupID . '/messages.txt');
+        } else {
+            $abstract = file_get_contents('db/groups/' . $groupID . '/log.txt');
+            $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
+        }
+        $abstract = json_decode($abstract, true);
+        $messages = json_decode($messages, true);
 
-    if (in_array($userID, $abstract['blocks'])) {
-        print_r('blocks');
-        return;
-    }
+        if (in_array($userID, $abstract['blocks'])) {
+            print_r('blocks');
+            return;
+        }
 
-    $time = date("Y-M-d H:i");
+        $time = date("Y-M-d H:i");
 
-    if (is_array($messages)) {
-        array_push($messages, ['userID' => $userID, 'message' => $message, 'time' => $time, 'type' => $type, 'seen' => false]);
-    } else {
-        $messages[0] = ['userID' => $userID, 'message' => $message, 'time' => $time, 'type' => $type, 'seen' => false];
-    }
+        if (is_array($messages)) {
+            array_push($messages, ['userID' => $userID, 'message' => $message, 'time' => $time, 'type' => $type, 'seen' => false]);
+        } else {
+            $messages[0] = ['userID' => $userID, 'message' => $message, 'time' => $time, 'type' => $type, 'seen' => false];
+        }
 
-    $messages = json_encode($messages);
+        $messages = json_encode($messages);
 
-    if ($type == 'text') {
-        $messages = file_put_contents('../db/groups/' . $groupID . '/messages.txt', $messages);
-    } else {
-        $messages = file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages);
+        if ($type == 'text') {
+            $messages = file_put_contents('../db/groups/' . $groupID . '/messages.txt', $messages);
+        } else {
+            $messages = file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages);
+        }
+    } elseif ($dbType == 'mysql') {
+        require_once "dbConnection.php";
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $time = date("Y-M-d H:i");
+
+        $query = "INSERT INTO `messages`
+        (`message_id`, `group_id`, `user_id`, `time`, `type`, `seen`, `message`) VALUES 
+        (NULL, ?, ?, ?, ?, ?, ?)";
+        "
+        ";
+        $row = $conn->prepare($query);
+        $row->execute([$groupID, $userID, $time, $type, false, $message]);
     }
 }
 
@@ -42,7 +58,7 @@ if (isset($_POST['function']) && $_POST['function'] == 'addMessage') {
     if (strlen($_POST['message']) == 0 || strlen($_POST['message']) > 100) {
         echo false;
     } else {
-        addMessage($_POST['message'], $_POST['groupID'], 'text', $_POST['userID']);
+        addMessage($_POST['message'], $_POST['groupID'], 'text', $_POST['userID'], $_POST['dbType']);
     }
 }
 
@@ -98,8 +114,19 @@ function deleteMessage($groupID, $messageID)
  */
 function readMessages($groupID)
 {
-    $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
-    $messages = json_decode($messages, true);
+    if (dbType == 'file') {
+        $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
+        $messages = json_decode($messages, true);
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "SELECT * FROM `messages` WHERE `group_id` = ?";
+        $row = $conn->prepare($query);
+        $row->execute([$groupID]);
+        while ($messages[] = $row->fetch(PDO::FETCH_ASSOC));
+        $messages = array_slice($messages, 0, count($messages) - 1);
+    }
 
     return $messages;
 }
@@ -149,7 +176,7 @@ function uploadImage($groupID, $image, $username, $type = 'image')
 
     if (move_uploaded_file($image["tmp_name"], $targetUpload)) {
         if ($type != 'avatar') {
-            addMessage("$name.$format", $groupID, 'image', $_SESSION['user_id']);
+            addMessage("$name.$format", $groupID, 'image', $_SESSION['user_id'], dbType);
         } else {
             add_toast('image add successfully', 'success');
         }
@@ -165,23 +192,38 @@ function uploadImage($groupID, $image, $username, $type = 'image')
  */
 function seenMessage($groupID, $userID)
 {
-    $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
-    $messages = json_decode($messages, true);
+    if (dbType == 'file') {
+        $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
+        $messages = json_decode($messages, true);
 
-    foreach ($messages as &$message) {
-        if ($message['userID'] != $userID) {
-            $message['seen'] = true;
+        foreach ($messages as &$message) {
+            if ($message['userID'] != $userID) {
+                $message['seen'] = true;
+            }
         }
-    }
 
-    $messages = json_encode($messages);
-    file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages);
+        $messages = json_encode($messages);
+        file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages);
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
+
+        $query = "UPDATE `messages` SET `seen` = 'True' WHERE `group_id` = ? AND `user_id` = ?";
+        $group = $conn->prepare($query);
+        $group->execute([$groupID, $userID]);
+    }
 }
 
 // load messages oh page
 function loadMessages($messages, $rule)
 {
     foreach ($messages as $id => $message) { ?>
+        <?php if (dbType == 'mysql') {
+            
+            $message['userID'] = $message['user_id'];
+            unset($message['user_id']);
+
+        } ?>
         <div id="messageBody" class="flex flex-row<?= ($message['userID'] == findID($_SESSION['username'])) ? '-reverse' : '' ?> my-2 ">
             <div class="w-8 h-8 relative flex flex-shrink-0 flex-row-reverse self-stretch my-auto <?= ($message['userID'] == findID($_SESSION['username'])) ? 'ml-4' : 'mr-4' ?>">
                 <?php $Avatar = user_exists(findUsername($message['userID'])) ?>
@@ -230,7 +272,7 @@ function loadMessagesJS($id, $message, $userID, $rule, $main_url)
     ?>
     <div id="messageBody" class="flex flex-row<?= ($message['userID'] == $userID) ? '-reverse' : '' ?> my-2">
         <div class="w-8 h-8 relative flex flex-shrink-0 self-stretch my-auto <?= ($message['userID'] == $userID) ? 'ml-4 ' : 'mr-4' ?>">
-            <?php $Avatar = user_existsJS(findUsernameJS($message['userID'])) ?>
+            <?php $Avatar = user_exists(findUsernameJS($message['userID']), true) ?>
             <?php if (!empty($Avatar['avatar'])) : ?>
                 <img class="shadow-md rounded-full w-full h-full overflow-hidden" src="<?= $main_url . $Avatar['avatar'] ?>" alt="">
             <?php else : ?>
@@ -271,17 +313,31 @@ function loadMessagesJS($id, $message, $userID, $rule, $main_url)
  * read message from db and send to chat body realtime
  * @return array [message, message send time]
  */
-function readMessagesJS($groupID, $userID, $rule, $main_url)
+function readMessagesJS($groupID, $userID, $rule, $main_url, $dbType)
 {
-    $messages = file_get_contents("../db/groups/$groupID/messages.txt");
-    $messages = json_decode($messages, true);
+    if ($dbType == 'file') {
+        $messages = file_get_contents("../db/groups/$groupID/messages.txt");
+        $messages = json_decode($messages, true);
+    } elseif ($dbType == 'mysql') {
+        require_once "dbConnection.php";
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
 
+        $query = 'SELECT * FROM `messages` WHERE `group_id` = ?';
+        $row = $conn->prepare($query);
+        $row->execute([$groupID]);
+        while ($messages[] = $row->fetch(PDO::FETCH_ASSOC));
+        $messages = array_slice($messages, 0, count($messages) - 1);
+
+    }
 
     foreach ($messages as $id => $message) {
+        $message['userID'] = $message['user_id'];
+        unset($message['user_id']);
         loadMessagesJS($id, $message, $userID, $rule, $main_url);
     }
 }
 
 if (isset($_POST['function']) && $_POST['function'] == 'readMessageJS') {
-    readMessagesJS($_POST['groupID'], $_POST['userID'], $_POST['rule'], $_POST['main_url']);
+    readMessagesJS($_POST['groupID'], $_POST['userID'], $_POST['rule'], $_POST['main_url'], $_POST['dbType']);
 }
