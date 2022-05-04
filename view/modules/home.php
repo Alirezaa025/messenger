@@ -185,7 +185,6 @@ function get_contents()
                                 $conn = $connInstance->getConnection();
                                 $query = "checksum table `messages`";
                                 $hash = $conn->query($query)->fetch(PDO::FETCH_ASSOC)['Checksum'];
-
                                 ?>
                                 <script type="text/javascript">
                                     $(document).ready(function() {

@@ -87,25 +87,35 @@ function editMessage($groupID, $messageId, $editedMessage)
  */
 function deleteMessage($groupID, $messageID)
 {
-    $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
-    $messages = json_decode($messages, true);
+    if (dbType == 'file') {
+        $messages = file_get_contents('db/groups/' . $groupID . '/messages.txt');
+        $messages = json_decode($messages, true);
 
-    if (!array_key_exists($messageID, $messages)) {
+        if (!array_key_exists($messageID, $messages)) {
+            return false;
+        }
+
+        if ($messages[$messageID]['type'] == 'image') {
+            deleteDirectory("db/groups/$groupID/image/" . $messages[$messageID]['message']);
+        }
+
+        unset($messages[$messageID]);
+
+        $messages = json_encode($messages);
+
+        if (file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages)) {
+            return true;
+        }
         return false;
-    }
+    } elseif (dbType == 'mysql') {
+        $connInstance = MySqlDatabaseConnection::getInstance();
+        $conn = $connInstance->getConnection();
 
-    if ($messages[$messageID]['type'] == 'image') {
-        deleteDirectory("db/groups/$groupID/image/" . $messages[$messageID]['message']);
-    }
-
-    unset($messages[$messageID]);
-
-    $messages = json_encode($messages);
-
-    if (file_put_contents('db/groups/' . $groupID . '/messages.txt', $messages)) {
+        $query = 'DELETE FROM `messages` WHERE `group_id` = ? AND `message_id` =?';
+        $group = $conn->prepare($query);
+        $group->execute([$groupID, $messageID]);
         return true;
     }
-    return false;
 }
 
 /**
@@ -291,7 +301,7 @@ function loadMessages($messages, $rule)
                     <?php endif; ?>
                     <?php
                     if (($message['userID'] == $_SESSION['user_id']) || $rule == 'admin') {
-                        chatButton($id, ($message['userID'] == findID($_SESSION['username'])) ? 'main' : 'other', $message['type']);
+                        chatButton($message['message_id'], ($message['userID'] == findID($_SESSION['username'])) ? 'main' : 'other', $message['type']);
                     }
                     ?>
                 </div>
