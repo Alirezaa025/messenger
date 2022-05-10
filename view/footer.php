@@ -1,4 +1,4 @@
-<script src="<?= main_url ?>asset2/js/JS.js"></script>
+<script src="<?= main_url ?>asset/js/JS.js"></script>
 
 </script>
 </body>
